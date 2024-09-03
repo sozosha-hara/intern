@@ -1,0 +1,407 @@
+# Reactタスク管理アプリ開発 ステップ7-10
+
+## ステップ7: スタイリングとUIの改善
+
+CSS Modulesを使用してスタイリングを改善します。まず、`src/App.module.css`ファイルを作成し、以下のCSSを追加します：
+
+```css
+.app {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.title {
+  text-align: center;
+  color: #333;
+}
+
+.form {
+  display: flex;
+  margin-bottom: 20px;
+}
+
+.input {
+  flex-grow: 1;
+  padding: 10px;
+  font-size: 16px;
+  border: 1px solid #ddd;
+  border-radius: 4px 0 0 4px;
+}
+
+.button {
+  padding: 10px 20px;
+  font-size: 16px;
+  background-color: #0077ff;
+  color: white;
+  border: none;
+  border-radius: 0 4px 4px 0;
+  cursor: pointer;
+}
+
+.list {
+  list-style-type: none;
+  padding: 0;
+}
+
+.item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  margin-bottom: 10px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+}
+
+.text {
+  cursor: pointer;
+}
+
+.completed {
+  text-decoration: line-through;
+  color: #888;
+}
+
+.deleteButton {
+  padding: 5px 10px;
+  font-size: 14px;
+  background-color: #ff4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+```
+
+次に、`src/App.js`ファイルを以下のように更新します：
+
+```jsx
+import React, { useState } from 'react';
+import styles from './App.module.css';
+
+function App() {
+  const [tasks, setTasks] = useState([]);
+  const [newTask, setNewTask] = useState('');
+
+  const handleInputChange = (e) => {
+    setNewTask(e.target.value);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (newTask.trim() !== '') {
+      setTasks([...tasks, { id: Date.now(), text: newTask, completed: false }]);
+      setNewTask('');
+    }
+  };
+
+  const handleDelete = (id) => {
+    setTasks(tasks.filter(task => task.id !== id));
+  };
+
+  const handleToggle = (id) => {
+    setTasks(tasks.map(task =>
+      task.id === id ? { ...task, completed: !task.completed } : task
+    ));
+  };
+
+  return (
+    <div className={styles.app}>
+      <h1 className={styles.title}>タスク管理アプリ</h1>
+      <form className={styles.form} onSubmit={handleSubmit}>
+        <input
+          className={styles.input}
+          type="text"
+          value={newTask}
+          onChange={handleInputChange}
+          placeholder="新しいタスクを入力"
+        />
+        <button className={styles.button} type="submit">追加</button>
+      </form>
+      <ul className={styles.list}>
+        {tasks.map(task => (
+          <li key={task.id} className={styles.item}>
+            <span
+              className={`${styles.text} ${task.completed ? styles.completed : ''}`}
+              onClick={() => handleToggle(task.id)}
+            >
+              {task.text}
+            </span>
+            <button className={styles.deleteButton} onClick={() => handleDelete(task.id)}>削除</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default App;
+```
+
+### 変更点の説明：
+1. CSS Modulesを導入し、スタイルをコンポーネントにスコープしました。
+2. クラス名を`styles`オブジェクトから参照するように変更しました。
+3. 条件付きクラス適用のために、テンプレートリテラルを使用しています。
+
+## ステップ8: ローカルストレージを使用したデータの永続化
+
+タスクデータをローカルストレージに保存し、アプリの再読み込み時にデータを復元する機能を追加します。`src/App.js`ファイルを以下のように更新してください：
+
+```jsx
+import React, { useState, useEffect } from 'react';
+import styles from './App.module.css';
+
+function App() {
+  const [tasks, setTasks] = useState(() => {
+    const savedTasks = localStorage.getItem('tasks');
+    return savedTasks ? JSON.parse(savedTasks) : [];
+  });
+  const [newTask, setNewTask] = useState('');
+
+  useEffect(() => {
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+  }, [tasks]);
+
+  const handleInputChange = (e) => {
+    setNewTask(e.target.value);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (newTask.trim() !== '') {
+      setTasks([...tasks, { id: Date.now(), text: newTask, completed: false }]);
+      setNewTask('');
+    }
+  };
+
+  const handleDelete = (id) => {
+    setTasks(tasks.filter(task => task.id !== id));
+  };
+
+  const handleToggle = (id) => {
+    setTasks(tasks.map(task =>
+      task.id === id ? { ...task, completed: !task.completed } : task
+    ));
+  };
+
+  // ... (rest of the component remains the same)
+}
+
+export default App;
+```
+
+### 変更点の説明：
+1. `useState`の初期値を関数に変更し、ローカルストレージからデータを読み込むようにしました。
+2. `useEffect`フックを使用して、`tasks`の状態が変更されるたびにローカルストレージにデータを保存するようにしました。
+
+## ステップ9: パフォーマンス最適化
+
+`React.memo`と`useCallback`を使用してコンポーネントのパフォーマンスを最適化します。新しく`Task`コンポーネントを作成し、`App`コンポーネントを更新します。
+
+まず、`src/Task.js`ファイルを作成し、以下のコードを追加します：
+
+```jsx
+import React from 'react';
+import styles from './App.module.css';
+
+const Task = React.memo(({ task, onToggle, onDelete }) => {
+  console.log('Task rendered:', task.text);
+  return (
+    <li className={styles.item}>
+      <span
+        className={`${styles.text} ${task.completed ? styles.completed : ''}`}
+        onClick={() => onToggle(task.id)}
+      >
+        {task.text}
+      </span>
+      <button className={styles.deleteButton} onClick={() => onDelete(task.id)}>削除</button>
+    </li>
+  );
+});
+
+export default Task;
+```
+
+次に、`src/App.js`ファイルを以下のように更新します：
+
+```jsx
+import React, { useState, useEffect, useCallback } from 'react';
+import Task from './Task';
+import styles from './App.module.css';
+
+function App() {
+  const [tasks, setTasks] = useState(() => {
+    const savedTasks = localStorage.getItem('tasks');
+    return savedTasks ? JSON.parse(savedTasks) : [];
+  });
+  const [newTask, setNewTask] = useState('');
+
+  useEffect(() => {
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+  }, [tasks]);
+
+  const handleInputChange = (e) => {
+    setNewTask(e.target.value);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (newTask.trim() !== '') {
+      setTasks([...tasks, { id: Date.now(), text: newTask, completed: false }]);
+      setNewTask('');
+    }
+  };
+
+  const handleDelete = useCallback((id) => {
+    setTasks(tasks => tasks.filter(task => task.id !== id));
+  }, []);
+
+  const handleToggle = useCallback((id) => {
+    setTasks(tasks => tasks.map(task =>
+      task.id === id ? { ...task, completed: !task.completed } : task
+    ));
+  }, []);
+
+  return (
+    <div className={styles.app}>
+      <h1 className={styles.title}>タスク管理アプリ</h1>
+      <form className={styles.form} onSubmit={handleSubmit}>
+        <input
+          className={styles.input}
+          type="text"
+          value={newTask}
+          onChange={handleInputChange}
+          placeholder="新しいタスクを入力"
+        />
+        <button className={styles.button} type="submit">追加</button>
+      </form>
+      <ul className={styles.list}>
+        {tasks.map(task => (
+          <Task
+            key={task.id}
+            task={task}
+            onToggle={handleToggle}
+            onDelete={handleDelete}
+          />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default App;
+```
+
+### 変更点の説明：
+1. `Task`コンポーネントを分離し、`React.memo`でラップしてレンダリングの最適化を行いました。
+2. `handleDelete`と`handleToggle`関数を`useCallback`でメモ化し、不要な再生成を防いでいます。
+3. `setTasks`の中で関数形式の更新を使用し、最新の`tasks`状態を確実に参照できるようにしました。
+
+## ステップ10: エラー処理とユーザーフィードバック
+
+エラー処理を改善し、ユーザーフィードバックを追加します。`src/App.js`ファイルを以下のように更新してください：
+
+```jsx
+import React, { useState, useEffect, useCallback } from 'react';
+import Task from './Task';
+import styles from './App.module.css';
+
+function App() {
+  const [tasks, setTasks] = useState(() => {
+    try {
+      const savedTasks = localStorage.getItem('tasks');
+      return savedTasks ? JSON.parse(savedTasks) : [];
+    } catch (error) {
+      console.error('Failed to load tasks:', error);
+      return [];
+    }
+  });
+  const [newTask, setNewTask] = useState('');
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+    } catch (error) {
+      console.error('Failed to save tasks:', error);
+      setError('タスクの保存に失敗しました。');
+    }
+  }, [tasks]);
+
+  const handleInputChange = (e) => {
+    setNewTask(e.target.value);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (newTask.trim() !== '') {
+      setTasks(prevTasks => [...prevTasks, { id: Date.now(), text: newTask, completed: false }]);
+      setNewTask('');
+      setError(null);
+    } else {
+      setError('タスクを入力してください。');
+    }
+  };
+
+  const handleDelete = useCallback((id) => {
+    setTasks(prevTasks => prevTasks.filter(task => task.id !== id));
+    setError(null);
+  }, []);
+
+  const handleToggle = useCallback((id) => {
+    setTasks(prevTasks => prevTasks.map(task =>
+      task.id === id ? { ...task, completed: !task.completed } : task
+    ));
+    setError(null);
+  }, []);
+
+  return (
+    <div className={styles.app}>
+      <h1 className={styles.title}>タスク管理アプリ</h1>
+      {error && <p className={styles.error}>{error}</p>}
+      <form className={styles.form} onSubmit={handleSubmit}>
+        <input
+          className={styles.input}
+          type="text"
+          value={newTask}
+          onChange={handleInputChange}
+          placeholder="新しいタスクを入力"
+        />
+        <button className={styles.button} type="submit">追加</button>
+      </form>
+      <ul className={styles.list}>
+        {tasks.map(task => (
+          <Task
+            key={task.id}
+            task={task}
+            onToggle={handleToggle}
+            onDelete={handleDelete}
+          />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default App;
+```
+
+また、`src/App.module.css`ファイルにエラーメッセージのスタイルを追加してください：
+
+```css
+.error {
+  color: #ff4444;
+  margin-bottom: 10px;
+  text-align: center;
+}
+```
+
+### 変更点の説明：
+1. ローカルストレージの操作を`try-catch`ブロックで囲み、エラーハンドリングを追加しました。
+2. エラー状態を管理するための`error`ステートを追加しました。
+3. フォーム送信時の入力検証を強化し、エラーメッセージを表示するようにしました。
+4. 各操作後にエラー状態をクリアするようにしました。
+
+これで、基本的な機能を備え、スタイリングされ、データが永続化され、パフォーマンスが最適化され、エラー処理が改善されたタスク管理アプリが完成しました。このアプリケーションは、Reactの主要な概念と機能を網羅しており、インターン生が実践的にReactを学ぶための良い例となります。
